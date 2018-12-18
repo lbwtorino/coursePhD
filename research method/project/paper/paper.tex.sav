@@ -1,0 +1,778 @@
+\documentclass[letterpaper,twocolumn,10pt]{article}
+\usepackage{usenix2019,epsfig,endnotes}
+\usepackage{slashbox}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{url}
+\usepackage{threeparttable}
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}  % Use Input in the format of Algorithm
+\renewcommand{\algorithmicensure}{\textbf{Output:}} % Use Output in the format of Algorithm
+\newcommand{\psz}[1]{\textcolor{red}{\footnotesize [PSz: #1]}}
+\newcommand{\bowen}[1]{\textcolor{red}{\footnotesize [Siwei: #1]}}
+\newcommand{\chunpeng}[1]{\textcolor{red}{\footnotesize [Chunpeng: #1]}}
+\makeatletter\def\@captype{table}\makeatother
+
+\begin{document}
+
+%don't want date printed
+\date{}
+
+%make title bold and 14 pt font (Latex default is non-bold, 16 pt)
+\title{\Large \bf ETHeros: Access Control Service for Smart Contracts}
+
+%for single author (just remove % characters)
+\author{
+{\rm Bowen Liu}\\
+bowen\_liu@mymail.sutd.edu.sg\\
+SUTD, Singapore
+\and
+{\rm Chunpeng Ge}\\
+chunpeng\_ge@sutd.edu.sg\\
+SUTD, Singapore
+\and
+{\rm Pawel Szalachowski}\\
+pawel@sutd.edu.sg\\
+SUTD, Singapore
+} % end author
+
+\maketitle
+
+% Use the following at camera-ready time to suppress page numbers.
+% Comment it out when you first submit the paper for review.
+\thispagestyle{empty}
+
+
+\subsection*{Abstract}
+A smart contract is a computer program that facilitates, verifies, or enforces the negotiation or execution of an agreement. It offers the potential to create and maintain living policy data that are securely stored on Blockchain, cutting out any middleman compared with traditional contract law. However, the policies are difficult to manage and even impossible to update. Meanwhile, the new emerged bugs in smart contracts need on-the-fly protection.
+
+To address this problem, we present the ETHeros framework, the first targeted approach to enhance the degree of access control by customizing the multiple types of tickets. Our key idea is a policy, a collection of rules that limits the permission of caller. Our framework works as a third party service in Ethereum, and is able to manage the policy for each smart contract, preventing them from malicious visitors. We apply the ETHeros framework to Tickets Service(TS) and first propose the idea of policy, that is initialized by the owner of smart contracts. We define the five types of tickets and each of them is corresponding to a policy type. Tickets can work as a entry permission for smart contracts. We design a simple version of the ETHeros framework for Ethereum and implement the model of TS, owner and user entity. We evaluate our implementation for the soundness and veracity and show the cost of a ticket and the throughput of ETHeros.
+
+\textbf{Key words}:Blockchain; Smart Contracts; Access control; Ethereum; Policy
+
+\section{Introduction}
+The concept of smart contracts that enables mutually mistrusting parties to make an agreement and
+execute it without relying on a third trust party was first introduced by Szabo~\cite{szabo1996smart}. A smart contract can be expressed as a programming language with a set of logic and actions. Once deployed, the smart contract will execute according to the outside input and inside logic. A smart contract is a promising revolution to the traditional law-based contract. Though the concept has been proposed for decades, there rarely have some applications due to the lack of implementation environment.
+
+Blockchain, the underlying technology of Bitcoin introduced by Nakamoto~\cite{nakamoto2008bitcoin}, is a decentralized platform in which each node stores a copy of ledger and will eventually make a consensus on the state. Buterin ~\cite{buterin2017ethereum}introduced the concept of smart contracts to blockchain and designed the Ethereum blockchain platform in which smart contract is written in a Turing complete program language and executed. Once deployed in the Ethereum platform, a smart contract is visible by every node in the Ethereum network. The transactions calling smart contract and the execution result is also transparent to the whole Ethereum network. Due to its properties, smart contracts have shown its huge potential in many domains including finance industry ~\cite{breindenbach2018enter}, supply chain industry~\cite{korpela2017digital}and insurance industry ~\cite{nakamoto2008bitcoin}.
+
+Unfortunately, lacking security guarantees hampers the large-scale adoption of smart contracts. Smart contracts are more vulnerable as the insidecodes and logic are public. And at a sequence, smart contracts are facing a variety of security problems in the past few months~\cite{cohn2017smart}, ~\cite{korpela2017digital}, ~\cite{Hydra}, ~\cite{breindenbach2018enter}, ~\cite{MultisigBug}. To mitigate the attacks, many security methods have been proposed such as Hydra ~\cite{breindenbach2018enter} and Securify ~\cite{tsankov2018securify}. Hydra ~\cite{breindenbach2018enter} quantified smart contracts' economic security using the $N$-version programming method.
+
+However, the previous constructions mainly focused on the code bugs of smart contracts. What's more, the previous methods are all beforehand which means once a smart contract is deployed, these security guarantees will no longer work. A smart contract may be accompanied by access policies designed by its owner when issued. However, when there are loopholes with these access policies, the owner cannot update it immediately. The owner should issue an policy update transaction and waiting for the transaction to be packaged into the Ethereum blockchain. Second, when a user issues a transaction that calls the smart contract, the smart contract will first check the transaction against the policy. As each execution step of the checking operation consumes the transaction gas, huge gas fees are wasted to validating the policy. This situation is worse when the accessing number of transactions is larger, such as in the EtherDelta smart contract which got about 10 billion transactions. Moreover, with the increase in gas fee of each transaction, the throughput of the smart contract declines.
+
+This paper, for the first time, proposes ETHeros, an access control service for smart contracts that aims to enhance the run-time security of smart contracts and save the gas fee for transactions calling smart contracts. Our architecture allows the access policy of smart contract to be updated instantly and verified beforehand without consuming gas. In ETHeros, an online service named smart contract tickets service (TS), designated by the smart contract owner, verifies the access policy and grants a signed ticket on behave of the smart contract. With the signed ticket, a user can access the smart contract. The smart contract only needs to verify the signature of the ticket to make sure this ticket is assigned by SCT. The smart contract owner can on-the-fly update the policy. By this design, our architecture provides many benefits like security and efficiency for smart contracts, and cheaper for access transactions.
+
+\section{Background \& Preliminaries}
+
+% \subsection{Preliminaries}
+% % The notation used throughout the paper is presented in \autoref{tab:notation}
+% The notation used throughout the paper is presented in Table 1.
+% \begin{table}[h!]
+% \begin{center}
+% % \renewcommand*{\arraystretch}{1.25}
+%     \begin{tabular}{ll}
+% $\{msg\}_A$ & denotes the message $msg$ digitally signed by $A$, \\
+% $TS$ & denotes the Tickets Service entity, \\
+% $SCA$ & denotes the contract $SC$ created by $A$, \\
+% $TSA$ & denotes the Tickets Service $TS$ that manages $SCA$, \\
+% $h(.)$ & is a cryptographic hash function, \\
+% $\|$ & is the string concatenation, \\
+% $t_x$ & is a Unix timestamp expressed in seconds. \\
+% \end{tabular}
+% \end{center}
+% \caption{Notation used throughout the paper.}
+% \label{tab:notation}
+% \end{table}
+\subsection{Blockchain and Smart Contracts}
+Bitcoin projects open a new door of blockchain which is a combination of distributed system~\cite{kalodner2018arbitrum}, peer-to-peer network cryptography technology, and consensus issue. Blockchain is a globally shared, transactional database in which everyone can participate in.
+
+A practical and extraordinary example that leverage the technologies in blockchain is smart contract that can be defined and securely saved permanently in the blockchain network~\cite{luu2017smart,breidenbach2018enter}. All participants execute the same code for the same inputs. The most prominent smart contract platform is Ethereum. There are two types of accounts in which share the same address space: external accounts that are controlled by public-private key pairs (i.e. humans) and contract accounts determined at the time the contract is created. Smart contracts can implement almost arbitrary logic, including monetary transfers, thus making this technology appealing to financial-related services and other businesses.
+
+\subsection{Transaction and Message call}
+A transaction in Ethereum is a message that is sent from one account to another account which can include binary data (its payload) and Ether~\cite{miller2018smart}. Upon creation, each transaction is charged with a certain prepaid amount of gas, whose purpose is to limit the amount of work that is needed to execute the transaction and to pay for this execution. The gas price is a value set by the creator of the transaction, who has to pay gas\_price * gas up front from the sending account.
+Contracts can call other contracts or send Ether to non-contract accounts by the means of message calls. Message calls are similar to transactions, in that they have a source, a target, data payload, Ether, gas and return data. In fact, every transaction consists of a top-level message call which in turn can create further message calls.
+
+The binary data in each message call is called calldata. Currently, there are many args of calldata we can obtain and some of the key members are~\cite{Solidity}:
+
+\begin{itemize}
+  \item tx.origin - sender of the transaction for full call chain
+  \item msg.sender - sender of the message for current call
+  \item msg.data - complete message
+  \item msg.sig - first 4-byte of calldata (function identifier)
+  \item msg.gas - remaining gas.
+\end{itemize}
+
+%
+%\noindent
+%\hangafter=1
+%\setlength{\hangindent}{1em}
+%\textbf{
+%\noindent
+%\hangafter=1
+%\setlength{\hangindent}{1em}
+%\textbf{
+%
+%\noindent
+%\hangafter=1
+%\setlength{\hangindent}{1em}
+%\textbf{
+%
+%\noindent
+%\hangafter=1
+%\setlength{\hangindent}{1em}
+%\textbf{
+%
+%\noindent
+%\hangafter=1
+%\setlength{\hangindent}{1em}
+%\textbf{
+
+\subsection{Solidity}
+Solidity, deigned by Gavin Wood et al, is a contract-oriented, high-level language for implementing smart contracts and designed to target the EVM~\cite{krupp2018teether,mehta2018smart}. It is statically typed, supports inheritance, libraries and complex user-defined types among other features. With Solidity, developers are able to write applications that implement self-enforcing business logic embodied in smart contracts.
+
+There are three data locations in solidity:
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{storage} - all the contract state variables reside. Every contract has its own storage and it is persistent between function calls and quite expensive to use.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{memory} - used to hold temporary values. It is erased between (external) function calls and is cheaper to use.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{calldata} - also known as stack, is a non-modifiable, non-persistent area only valid for parameters of external contract functions and is required for this type of parameter. It is almost free to use, but can only hold a limited amount of values.
+
+Functions are the executable units of code within a contract~\cite{mohanty2018basic}. Function Calls can happen internally or externally and have different levels of visibility towards other contracts. There are four types of visibilities for functions.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{external} - functions are part of the contract interface, which means they can be called from other contracts and via transactions. An external function f cannot be called internally (i.e. f() does not work, but this.f() works).
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{public} - functions are part of the contract interface and can be either called internally or via messages.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{internal} - functions can only be accessed internally (i.e. from within the current contract or contracts deriving from it), without using this.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{private} - functions are only visible for the contract they are defined in and not in derived contracts.
+
+There exists a special variant of a message call, named delegatecall~\cite{dannen2017introducing}. A contract can dynamically load code from a different address at runtime. Storage, current address and balance still refer to the calling contract, only the code is taken from the called address, making it possible to implement the library feature for complex data structure.
+
+\subsection{Access Control}
+Access Control is a security technique that regulates who or what can view or use resources in a computing environment. It is a fundamental concept in security that minimizes risk to the business or organization~\cite{xue2017raac,xu2018secure}.
+
+As each account address has a corresponding balance, there are more and more smart contracts facing the risk of balance was stolen, data unauthorized revised. There are two types of access control: physical and logical. In the Ethereum environment, the high-level language, for instance, Solidity, leverage plenty of built-in functions to enhance the security level of access control, including require() and assert().
+
+However, it's not enough for many practical circumstances that only define the access control rules by the above-mentioned method. In this paper, the logical access control comes from the following parts: 1) to limit the access space from the restricted address, 2) to customize the access rules and diversify the access control matrix, 3) to forbid the access rights from the illegal address.
+
+\section{ETHeros Overview}
+\subsection{System Model}
+ETHeros introduces the following parties:
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Owner}: is the creator of smart contracts which can be called by Users with legitimate tickets. Normally, there could be several smart contracts under the control of a single owner. The functionalities of Owner are as following: a) customizing the access policy in the initialization process of smart contract, b) generating the verification key-pairs each time when creating a new smart contract, the key-pair is used to signature, c) updating access policy by interacting with TS party when necessary, the updating procedure includes deleting, revising operations.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{TicketsService (TS)}:is an entity that offers tickets-related services including policy management, policy verification service, key-pair management, granting tickets service. The owner of smart contract applies for a space to store the access policy of current smart contract. In order to tag its own signature, the owner is supposed to generate the key-pair only for verification signature while TS is responsible for preventing them from malicious attack. Meanwhile, TS is able to generate tickets and grant authorization information to User by validating whether the user meets all the policies accordingly. The policies are various, mainly, which are different from the content user intent to call. For example, if a user only want to call a certain function in smart contract, TS need to grant the function-access tickets. Similarity, different policies represent different types of tickets.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{User}:can be treated as an application which has authority to get access to smart contracts only after obtaining valid tickets granted by TS. Before a trustworthy user is about to call one smart contract, it needs to apply for a valid ticket firstly. In order to complete that procedure, a user sends the message with its own information, such as its own address, destination address and calling methods, to specific TS which is corresponding to the destination smart contract. Once completely applying, the user obtains a valid ticket only for access the applied address. The ticket has several fields, including tickets type, expiration time, tickets index only for one-trip tickets(we will discuss later) and signature. The signature comes from the verification key-pair and the purpose is that user can verify the signature sent from TS so as to be aware of the signature signed by the destination address while the owner can also verify the validation of signature when responding the request from user's call.
+
+\noindent
+We assume that the protocol parties have access to a blockchain platform with smart contracts enabled (e.g., Ethereum).
+
+\subsection{Adversary Model}
+We assume an adversary can eavesdrop and modify the message from the party of user. We assume that an adversary can see the policies in TS. He can also interact freely with protocol entities and the blockchain platform. We assume that the adversary cannot compromise owners’ secret keys and cannot violate the privacy of owner. Moreover, we assume that the adversary cannot compromise underlying cryptographic primitives and protocols (i.e., Elliptic curve cryptography), and cannot violate properties of the deployed blockchain network.
+
+\subsection{Requirements}
+Below we list the desired properties of tickets for smart contracts.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Easily define and update access policy} - smart contracts are related to balance issue which are facing various attacks and risks. The owner is able to define suitable policies accordingly which can higher the security level itself. On the other hand, the policy cannot stay unchanged therefore we provide owner clean and easy-call API to define and update policies.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Multiple tickets type} - In general, the smart contracts in Ethereum have totally two different data, namely, code and state. From the point of the owner, they want to try as much as they can to promote the granularity level of smart contracts access control. We provide multiple tickets types when a user is willing to call it. For example, we provide methods tickets only for granting access to specific function in smart contracts. Each type is related to one kind of policy type as TS is able to grant different types of tickets according to the different policies rule.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Cost-friendly when deploying} - In Ethereum, there are three distinguish storage data for deploying smart contracts, storage, memory, and stack. Higher access control level means an owner need to define and store many complex and specific policies into smart contracts when deploying in Ethereum. We convert costly storage into TS party which can be defined as a web service and cost-friendly storage environment.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Security assurance} - Policies contain a variety of access rules and defined by the owner of smart contracts that can enhance the level of access control for contracts. Each TS is dominated by one owner whose privacy cannot be compromised, therefore, the owner can on-the-fly updated the access rules with TS, guaranteeing the security of contracts
+
+\subsection{High-level Overview}
+% \noindent A high level description is presented in \autoref{fig:overview}.
+\noindent A high level description is presented in Figure 1.
+\begin{figure}[t]
+\begin{picture}(300,150)(-10,10)
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig/overview}
+  \put(-15,-30){\special{psfile = fig1.ps hscale = 100 vscale = 100}}
+\end{picture}\\
+  \caption{A high-level overview of the tickets.}
+  \label{fig:overview}
+\end{figure}
+
+\indent The central point of our design is a TS platform that implements main functionalities: the ticket-related services and access policies-related management. The tickets-related services grant Users to tickets generated by the calling message of user and provide owner with verification functionality corresponding to the tickets, while the latter functionality is used mainly for managing general policies. Meanwhile, TS is responsible for keeping the public key and private key pair in local storage. The key pair is used for tickets signature and verification process aiming not to leaking the privacy of owner's account in Ethereum.
+We assume that the owner does have a valid location(address) of its smart contract in Ethereum network, every calling though different smart contracts are able to trigger a valid transaction associated with enough gas limit and gas price.
+
+\indent We assume that the user is able to pass all the policy requirements and obtain a valid ticket when accessing to the destination smart contract. Also, each smart contract has a possession of one TS which is a trustworthy third-party service provider.
+
+
+\indent 1) In the first step, owner creates a new smart contract and initialize its policy into TS. Besides, owner also generates new verification key-pair corresponding to this new-created contract kept in TS. TS stores general policies corresponding to owner’s rule as well as a key pair.
+
+\indent 2) User applies for the tickets-generate service by sending requests information that contains transaction message information before access to the Owner, such as address represents calling address and function represents calling a specific function in the owner's contract, respectively.
+
+\indent 3) The TS notices the request and trigger tickets-generate service itself. First of all, TS analyzes the parameters sent by user and determines access permission according to the policies matching. Then, if User has permission to access owner's contracts, TS is able to generate a signature according to the tickets type using elliptic curve signature algorithm in Ethereum, where the signer is owner associated with its verification private key and message-to-be-signed is the whole tickets. At last, TS transfers tickets to user. Tickets can be treated as a permission for Owner, as a visa for entry countries. However, if user fails to pass all the compulsory policies, TS have the right to refuse User’s access.
+
+\indent 4) User sends a transaction to owner after it held a ticket. Once noticed the request, owner firstly should verify the validation of tickets. The verification process is supposed to be done in the code of the owner's contract, verifying the signature. Additionally, there are two types of a function call, namely, external call and internal call. The former type raises a new transaction process which means that user needs to apply for one more tickets to complete the multiple call chain. On the other hand, the latter type just calls internal methods without passing any tickets. Every access period needs to abide by blockchain timestamp in Ethereum network, leveraging UNIX global timestamp. A user can access to owner by the expiry timestamp and, also, is able to apply for a new ticket if needed.
+
+\indent 5) Owner maintains the right to refuse any calls if happens to unmatched verification despite User has been obtained valid tickets for the fact that malicious attack and fake signature issue.
+
+\section{ETHeros Details}
+In this section, we describe components of the ETHeros architecture and explain its steps since a owner creates a new smart contract establishing TS service until the user applies for a new ticket to access the smart contracts. We also discuss the total types of tickets and how the TS can generate a valid ticket.
+
+\subsection{Initialize Service}
+
+In the first step, an owner creates a new smart contract and deploy it into Ethereum. There are following initialization steps to be arranged:
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Policy}: contains all the access rules defined by owner in order to protect its own smart contract from the disallowed user. The policy can be defined into several degrees, a)block the illegal address from Ethereum network b)positioned the access area for a user could reach, like which method can be called or which storage variables can be updated.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{TS}: is responsible for managing the data of one smart contract. Data includes three parts: a) policy-related data, describing the detailed policy of smart contract, b) verification key-pair data, used for signature verification step after granting valid tickets to a user. c) ticket-related data, ordinary tickets has no need to tag special index in TS while the only one-trip ticket is supposed to add the new field in TS.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{User}: can be treated as any format in web service which can raise a call or transaction within smart contracts. More importantly, a user should have a valid Ethereum address with affordable balance in order to pass all the requirements of policy and finish the valid transaction.
+
+\subsection{Tickets Type}
+\noindent The tickets types in TS are presented in Table 2.
+\begin{table}
+\caption{Ticket Types.}
+% \resizebox{\textwidth}{15mm}{
+\scalebox{0.8}{
+\begin{threeparttable}
+\begin{tabular}{|l|c|c|c|c|c|}\hline
+\backslashbox{msg}{type} &Role&Method&Args&Exclusive&One-way\\\hline
+msg.sender\tnote{*}&Yes &Yes &Yes &Yes &Yes\\
+msg.sig& &Yes &Yes &Yes &Yes\\
+msg.data& & &Yes &Yes &Yes\\
+msg.gas& & & &Yes &Yes\\\hline
+\end{tabular}
+\begin{tablenotes}
+        \footnotesize
+        \item[*] For multiple ticket, should be tx.origin which represents sender of the transaction (full call chain)
+
+\end{tablenotes}
+\end{threeparttable}
+}
+\label{tab:type}
+\end{table}
+Currently, TS provides a user with five different types of tickets (from type 1 to type 5), namely, role tickets, Tx tickets, function \& variable tickets, exclusive tickets, and single permit. Different types of tickets should generate the different signature which is to be verified by Owner according to different necessary msg information.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Role ticket}: is the highest priority tickets granted by TS, meaning that certain caller(user) could access to the smart contract before the expiry timestamp freely, regardless of functions, variables of sending transactions. TS only needs to verify the validation of user's address and make the decision whether the address is in the whitelist or blacklist.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Function ticket}: provides user with multiple transaction-sending access and full parameters. Hence, it is necessary for TS to get the information of user's address and calling function name which represent the msg.sender and msg.sig respectively from the view of owner's contract. Compare to role tickets, the function tickets need to verify the function access rules defined in a policy.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Variable ticket}: limits user to execute specific function code, and besides, variables. In some specific circumstances, the owner gives the permission of functions but not some private variables, especially significant storage variables in a smart contract. variables ticket can protect private data member from being modified. Obviously, this kind of tickets has one more verification process, variables.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Exclusive ticket}: disallowed multiple users to access the current smart contract simultaneously. By default, other types of tickets are not exclusive by User. Assume that user, who is holding an exclusive ticket, is calling the "setter" function of one smart contract. Exclusive ticket guarantees only the current user is able to call successfully in a smart contract. Other User will receive deny message from smart contract saying "the tickets belong to another user currently". However, it is not proper that only one user can access to certain contract as the time period is too long, e.g., 1 week or 1 month, sometimes. Hence, Exclusive ticket only needs to guarantee one transaction exclusive. Once noticing that the user has completed the transaction, smart contract renewed status and allowed another user to access again.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{One-way ticket}: guarantees the User only get access to the smart contract one time though holding a valid ticket authorized by TS as the name implies. This is the most complex tickets among above-mentioned types. The first difficulty comes from the transaction is random access in Ethereum,  therefore it's difficult to track the access sequence though TS grant a valid one-way ticket. Secondly, it's costly for an owner of a smart contract to make a spare space to store all the one-trip ID so as to look for if certain ID for one-trip tickets is doing double-access. In this paper, we design a bit-buffer-move approach to solve the issues. For one-way tickets, we need know one more args, msg.gas, which makes sure that a user holds enough gas fee to complete the transaction.
+
+\noindent Specific implementation is presented in Figure 2.
+\begin{figure*}[h!]
+  \centering
+  \includegraphics[width=0.8\linewidth]{fig/imple}
+  \caption{Detail implementation.}
+  \label{fig:imple}
+\end{figure*}
+
+\textbf{1a}): Owner represents the address that a smart contract is initially created. In Ethereum, each valid account holds its own private key which could be regarded as a unique identity. The owner of a smart contract needs to generate a key-pair only for signature and verification when constructing a new contract and send them to TS.
+
+\textbf{1b}): Policies vary in different smart contracts and could be customized by Owner. Compared with key-related API, Owner is also supposed to update its own policies with TS. Like key pair, TS maintains a policy storage area to save all the policies corresponding to certain Owner.
+
+\textbf{2a,2b}): Once completely updated policy and synchronized private key to TS, Owner is to be called by User all the time. This process starts with an request from a user to TS. First of all, User applies for the valid tickets to TS with the input argument of type, namely, tickets type, its own information which contains ample value of itself. After noticing the request, TS is responsible for determining if user meets policies by matching every rule in policy structure. If lucky, TS grants a valid ticket to user. A valid ticket contains several data fields: 1) destination address that represents the user is calling to, 2) tickets type. At present, we tag five types of tickets discussed in Chapter4.2 from 1 to 5 representing five types respectively.
+3)expiration time, a user only can access the destination smart contract if and only if before the expiration date. 4) index, only for one-way tickets (type=5) and 5)signature part contains signed data by owner verification private key where the message is the whole tickets members appended each other.
+\makeatletter
+\def\BState{\State\hskip-\ALG@thistlm}
+\makeatother
+\begin{algorithm}
+\caption{Tickets Verification}\label{alg:Verification}
+\begin{paragraph}
+\indent \textbf{ticketsType}: the type of applied tickets
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{expiryDate}: the valid period for ticket
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{r}: the first 32-bytes of elliptic curve signature
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{s}: the second 32-bytes of elliptic curve signature
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{v}: the initial index, generally, equals 0x1b or 0x1c
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{ethMsg}: the custom prefix Ethereum message
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{wholeMsg}: the whole signed message
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{hashMsg}: hash of whole signed message
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{now()}: current block timestamp
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{keccak256()}: compute Ethereum-SHA-3 hash
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{ecrecover()}: recover address associated with public key from ECDSA
+\end{paragraph}
+\begin{algorithmic}[1]
+\Procedure{VERIFY}{type, time, signature}
+\State $\textit{ticketsType} \gets \textit{type}$
+\State $\textit{expiryDate} \gets \textit{time}$
+\State $\textit{r} \gets \textit{first 32 bytes of signature}$
+\State $s \gets \textit{second 32 bytes of} \textit{signature}$
+\State $v \gets \textit{last 1 byte of} \textit{signature}$
+\BState \emph{//step1}:
+\If {$ now() > \textit{expiryDate}$} \Return false
+\EndIf
+\BState \emph{//step2}:
+\State $\textit{ethMsg} \gets \textit{$\backslash$x19Ethereum Signed Message:$\backslash$n}$
+\State $\textit{wholeMsg} \gets \textit{ethMsg + type + time}$
+\State $\textit{hashMsg} \gets \textit{keccak256}(wholeMsg)$
+\If {$\textit{verify\_key} = \textit{ecrecover}(hashMsg, v, r, s)$}
+\Return true
+\EndIf
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{3a,3b}): User sends the transaction to the smart contract of owner after obtaining valid tickets from TS. After noticing the calling message from User, the destination of a smart contract needs to verify the signature. The tickets verification details is show in Algorithm\ref{alg:Verification}. Furthermore, there needs to be one more step for the one-way ticket, namely, a owner needs to look for and determine if the index has been accessed or not.
+
+\subsection{One-way Tickets}
+Compared with the other four types of tickets, which do not have to create a ticket index for each user, the one-way ticket has to leverage a global index value in TS. The global index is just like a counter and TS can be aware of how many one-way tickets it has granted. Each user who applies for one-way tickets will have an additional filed apart from the other four types, one-way index. After that, a user will truly access to smart contracts holding a valid one-trip ticket, including one-way index. From the view of a smart contract, it first needs to determine whether the current index has been accessed or not. If yes, smart contract rejects the request.
+As discussed above, it's not realistic for a smart contract to store all the index as the number of transaction in Ethereum can be huge and it's costly to buy storage data when deploying the smart contracts into Ethereum. We designed a bit-buffer-move approach defined in Algorithm \ref{alg:move}to solve this tricky issue. The key point of this approach is that we use a fixed 256-bit size variable to response all the one-way tickets request. Each bit represent one one-way index and initialize all bit into zeros. When a user holds a one-way ticket, smart contract set the corresponding position to one. If the coming index is larger than current capacity, the bit-buffer will trigger move action which alters the current start and end index in bit-buffer in order to cater to the new one-trip index.
+To clarify this idea, we use a simple bit-buffer~\cite{chen2017tcabrp} to explain and assume that current bit-buffer only contain 8-bits.
+
+\makeatletter
+\def\BState{\State\hskip-\ALG@thistlm}
+\makeatother
+\begin{algorithm}
+\caption{Bit Buffer Move}\label{alg:move}
+\begin{paragraph}
+\indent \textbf{start}: start number of one-way tickets
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{startIdx}: index of \textit{start} in bit-buffer
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{end}: end number of one-way tickets
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{size}: length of bit-buffer
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{bitBuf}: the bit-buffer
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{index}: incoming one-way index
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{moveLen}: length to be moved
+\end{paragraph}
+\begin{algorithmic}[1]
+\Procedure{Move}{index}
+\BState \emph{//step1}:
+\State $\textit{start} \gets \textit{0}$
+\State $\textit{startIdx} \gets \textit{0}$
+\State $\textit{end} \gets \texttt{0}$
+\State $\textit{size} \gets \texttt{256}$
+\State $\textit{bitBuf} \gets \texttt{uint256}$
+\State $\textit{moveLen} \gets \texttt{index-end}$
+\State $\textit{preStart} \gets \texttt{startIdx}$
+\BState \emph{//step2}:
+\For{$i = 0 \to size$}
+    \If {$\textit{bitBuf}(startIdx)==0$ \textbf{and} $\textit{i+1}>=moveLen$}
+      \State $\textit{startIdx} \gets \textit{(startIdx+1) mod } \textit{size}$
+      \State $\textit{end} \gets \textit{end + i + 1}$
+      \State $\textit{start} \gets \textit{end - size + 1}$\\
+      \Return $(moveLen + preStart - 1) \textit{modƒ} size$
+    \Else
+      \State $\textit{bitBuf}(startIdx) \gets \textit{0}$
+      \State $\textit{startIdx} \gets \textit{(index + 1) mod } \textit{size}$
+    \EndIf
+\EndFor
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{step-1}: set all bit-buffer to zeros when deploying smart contract.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{step-2}: Assume that the one-trip index of 0, 1, 4, 5 have access to the smart contract, after that the changed bit-buffer is.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{step-3}: Now the user is willing to call with the one-way index of 9, obviously, the bit-buffer is not enough. For this circumstance, the move-approach firstly find the first index of zero and then set this index into end position and move the start index to the following. After that the changed bit-buffer is Figure 3.
+\begin{figure}[t]
+\begin{picture}(300,150)(-10,10)
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig/move-1}
+  \put(-15,-30){\special{psfile = fig1.ps hscale = 100 vscale = 100}}
+\end{picture}\\
+  \caption{one-way index of 9 call.}
+  \label{fig:move-1}
+\end{figure}
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{step-4}:We conitue to think over more complex case. When the index of 13 comes, if we set the end position into the first zero, the reallocated space is still not enough. Therefore, we need to look for the zero postion and at the same time meets the space requirement. After that the changed bit-buffer is Figure 4.
+\begin{figure}[t]
+\begin{picture}(300,150)(-10,10)
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig/move-2}
+  \put(-15,-30){\special{psfile = fig1.ps hscale = 100 vscale = 100}}
+\end{picture}\\
+  \caption{one-way index of 13 call.}
+  \label{fig:move-2}
+\end{figure}
+
+\noindent Bit-buffer-move approach has two advantages: 1)guarantee the flexibility when the incoming index is larger than the current capacity. From the case of step-4, when the index 13 comes, the bit-buffer immediately alters its start and end position for tagging the one-way tickets access. Then, the buffer can tag the index of 7 to 14 after index 13 call. 2)storage-friendly and cost-friendly. Compared to storing each index in smart contract, this approach only use 256-bits to make index availability.
+
+\subsection{Multiple Tickets}
+We discussed that there are two different ways to call smart contract. Internal calling does not have to pass any tickets if the user meets the verification process. External calling in Ethereum means that user raises a call to smart contract A which will also awake a call to smart contract B. Therefore, a user needs to apply for multiple tickets for external calling process each time.
+\begin{figure}[t]
+\begin{picture}(300,150)(-10,10)
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig/multiple}
+  \put(-15,-30){\special{psfile = fig1.ps hscale = 100 vscale = 100}}
+\end{picture}\\
+  \caption{Practical scenario of multiple tickets.}
+  \label{fig:multiple}
+\end{figure}
+
+As described above, each one TS is responsible for managing one smart contract. When user applied for the multiple tickets, the multiple TS will be called sequence until reaching the final calling stack. Each TS in multiple calling chains is supposed to grant its own tickets according to its own policy and user needs to append them up, called multiple tickets list, and raise the transaction eventually.
+
+Smart contracts need to parse and find the index in multiple tickets list and then exact the whole ticket which belongs to itself.
+\makeatletter
+\def\BState{\State\hskip-\ALG@thistlm}
+\makeatother
+\begin{algorithm}
+\caption{Multiple Tickets}\label{euclid}
+\begin{paragraph}
+\indent \textbf{address[]}: address list of full call chain
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{type[]}: type list of full call chain
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{expiryDate[]}: valid period list of full call chain
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{r[]}: r list of full call chain
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{s[]}: s list of full call chain
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{v[]}: v list of full call chain
+\end{paragraph}
+\begin{paragraph}
+\indent \textbf{numTickets}: the number of multiple tickets
+\end{paragraph}
+\begin{algorithmic}[1]
+\Procedure{multiTickets}{address[]}
+\State $\textit{index} \gets \texttt{0}$
+\State $\textit{numTickets} \gets \texttt{the length of} \textit{ address[]}$
+\BState \emph{//step1}:
+      \While{$index<numTickets$}
+                    \If{$address(this) == address[index]$}
+                    \State $\textbf{beak}$
+                    \EndIf
+                    \State $index\gets index+1$
+      \EndWhile
+\BState \emph{//step2}:
+\State $\textit{type} \gets \texttt{type[index]}$
+\State $\textit{time} \gets \texttt{expiryDate[index]}$
+\State $r \gets \textit{r[index]}$
+\State $s \gets \textit{s[index]}$
+\State $v \gets \textit{v[index]}$
+\If {$ now() > \textit{expiryDate}$} \Return false
+\EndIf
+\State $\textit{ethMsg} \gets \textit{$\backslash$x19Ethereum Signed Message:$\backslash$n}$
+\State $\textit{wholeMsg} \gets \textit{ethMsg + type + time}$
+\State $\textit{hashMsg} \gets \textit{keccak256}(wholeMsg)$
+\If {$\textit{verify\_key} = \textit{ecrecover}(hashMsg, v, r, s)$}
+\Return true
+\EndIf
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\section{Implementation and Use case}
+\subsection{Overview}
+To implement a prototype of the proposed framework, we used the Ethereum smart contract and Ganache Testnet implementation. We created the smart contracts by Solidity and configured Ganache as an Ethereum network environment. It ran under Solidity compiler version 0.4.24 with Ganache 1.1.0~\cite{Ganache}. We also leveraged Truffle~\cite{Truffle}, a popular framework in Ethereum with the version v4.1.14.
+
+Currently, the TS is implemented and provides service as a JavaScript file, which is run under Node.js v10.2.1 bundled with the node-localStorage package for storing general policies and verification key-pairs.
+
+For the entity of user, we implemented this part by web3.js 1.0.0-beta.35~\cite{web3.js}, a collection of modules which contain specific functionality for the Ethereum ecosystem. The facts of choosing web3.js are as follow: 1) web3.js provides ample API to interact with smart contracts in Ethereum framework, we can create user as a general service to send call or transactions with owner's contracts, 2) web3.js is also a package in the world of Javascript, which is convenient for interacting with TS.
+
+\subsection{Policies}
+In this section, we discuss the details about policy. A policy describes the rules of smart contract in the construction process. The owner of a contract, who is eager to limit the access permission, defines the ample rules in order to prevent a contract from being attacked. In our paper, we talk about policy from three degrees.
+
+\subsubsection{White and Blacklist}
+Many smart contracts are facing risks and unauthorized access in Ethereum. Although the contract address and account address are disclosed for the public, there is still exist many attackers who want to undergo untrustworthy operations.
+
+We introduce the concept of whitelist and blacklist into policy content~\cite{ramezan2018blockchain}. For an owner, they can give the priority permission to whitelist address. On the contrary, the blacklist address user should be blocked. The blacklist can come from the security issue in Ethereum network where we can be aware of the potential hackers and underlying harmful address. In ETHeros, the whitelist and blacklist are dynamically updated in TS and only the owner can conduct the update process by interacting with TS. To update the lists in policy, the TS first need to verify the identity of owner and then the operation can be performed completely.
+
+The whitelist and blacklist granularity is different from tickets types. For role tickets(type=1), the owner needs to define the list of calling address. Furthermore, the variable tickets(type=3) not only define the same list as role tickets but also define the list for each variable in a smart contract.
+
+\subsubsection{Hydra}
+Hydra introduces a concept called an exploit gap, a way for developers to turn crippling exploits into safe, decentralized bounty payments using a new form of fault tolerance called N-of-N Version Programming (NNVP)~\cite{breidenbach2018enter}. In the test case of Hydra, the smart contract needs to execute with three different headers, namely, solidity header, serpent header, and vyper header. Only all output are identical we can assume that the input smart contract has no suspicion.
+
+To integrity Hydra into ETHeros framework, we leverage one of the header, solidity header, in the Hydra. We put the contracts file (.sol) in the directory of ERC20 and add the test case for each function. Execute under Hydra framework and observing the output of solidity header to simply demonstrate the safety level of smart contracts.
+
+\subsubsection{Invariant}
+In Ethereum, each contract address is dominated by an account address that associated with different  number of balance. In this subsection, we guarantee that policy is able to monitor the balance amount before and after calling procedure to protect invariant from being harmed.
+
+\subsection{Case Study}
+In this section, we implement ETHeros framework into all entities. We consider a scenario where there are two smart contracts with two owners. Each contract has a TS management and also, we create a user who applies for two one-way tickets due to the full call chain is about all above-mentioned contracts.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{Owner}: In the initialization step, ownerA creates the smart contract A, SCA while ownerB create the SCB. Following the description in section 3, the ownerA initialized the policy for SCA, including the white and blacklist for sender address, for each method and for specific args. Meanwhile, ownerA generates the verification key-pair based on its own account private key. The ownerB conducts the same procedures as well. Furthermore, the methodA in SCA will call methodB in SCB in the full calling chain.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{User}: We implement the user as a web service. The address of a user is one of the whitelists in policy for convenience. A user needs to apply for the specific type of tickets associated with its own message(i.e. address, calling method and args)
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+\textbf{TS}: TS is the key entity in our framework. The number of TS equals that of contracts. We implement TSA for managing SCA while TSB for SCB. TSA maintains all the policy details in safety and verification key-pair for signing as well. When noticing the tickets applying information, TSA firstly verify the policy rules of SCA based on the information of a user. If passed, TSA grants a valid ticket to a user and followed by the verification and granting procedures by TSB. A tickets fields are shown as follow:
+
+\noindent
+\fbox{
+\parbox{0.95\linewidth}{
+    \{
+
+    \leftskip=2em ``signed'': \{
+
+      \leftskip=4em ``address'': ``0x7ab9843c5faa781e54...'',
+
+      \leftskip=4em ``type'': ``5'',
+
+      \leftskip=4em ``expiration'': ``1541647313'',
+
+      \leftskip=4em ``one-way index'': ``128''
+
+    \leftskip=2em  \},
+
+    \leftskip=2em ``signature'': \{
+
+      \leftskip=4em ``v'': ``0x1b'',
+
+      \leftskip=4em ``r'': ``0x5f69db697da02a96e417...'',
+
+      \leftskip=4em ``s'': ``0x2031a44e2bc38a429622...'',
+
+      \leftskip=4em ``signature'': ``0x5f69db697da02a96e41...''
+
+    \leftskip=2em  \}
+
+    \leftskip=0em
+    \}
+  }
+}
+
+\section{Security Discussion}
+In this section, we will discuss the adversary model for our ETHeros architecture.
+
+\subsection{Ticket authentication}
+The first underlying adversary model is that an attacker tries to figure out the correct verification key-pair of certain smart contract and then forge the signature on behalf on the TS. To achieve this, an adversary has to complete the following steps:
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+1) - Adversary needs to generate the right verification private key and public key based on the owner's private key and a nonce.
+
+\noindent
+\hangafter=1
+\setlength{\hangindent}{1em}
+2) - Forge the signature and tickets and send it to the user who applies for tickets.
+
+This first attack model is infeasible to implement due to it's not realistic for an ordinary attacker to calculate out the right private key for verification. From the view of owners, who are not willing to share its own private key to the public as each external account has a corresponding balance, it's hard for an adversary to obtain the private key. Furthermore, user will raise a verify tickets process each time he obtains a ticket from TS. If the result is suspicious, user will discard the received tickets. Hence, our ETHeros architecture can protect the tickets authentication and source integrity from being harmed
+
+\subsection{Malicious TS attack}
+ETHeros architecture prevents the safety of system from the malicious TS attack.
+
+In our design, each TS is dominated by one owner. Once a TS becomes malicious that wants to add some illegal address or blacklist address into the whitelist, the owner is able to be aware of this suspicious operation. The update-policy operation only could be processed by owner after the verification owner's identity. If an owner is aware of that certain TS is hacked or malicious, owner will discard TS and re-initial a new trustworthy TS for managing the policies corresponding to current smart contract. To prevent TS from leaking privacy of owner, we can store the key-pair with the security aspects of SGX in accessing a key system resource, files~\cite{ahmad2018obliviate}.
+
+
+\subsection{DoS Attack}
+In this section, we will discuss the DoS attack. An adversary is able to apply for massive tickets within in short period of a timeslot, the service of ETHeros will be not available. To solve this, our design in TS leverage the asynchronous idea. When noticing the traffic jam, TS allocate each apply request a callback. In fact, the peak query for smart contracts in Ethereum is nearly 50 per second. If an adversary applies for a large number of tickets, the TS can block its address and set into the blacklist.
+
+Another scenario of DoS attack will address to the 51\% attack if an adversary holds the majority of computation power in blockchain network. This scenario will result in the disorder of transaction and even non-availability in Ethereum. However, our framework focuses on the access policy and issues the valid ticket to visitor, regardless of the DoS of blockchain and transaction delay. Hence, our ETHeros can prevent tickets from DoS attack.
+
+\subsection{Replay Attack}
+Assume that an adversary hold the same ticket as that of user and the same message as well. To address replay attack, the transaction object in Ethereum has a field called `nonce', which means the number of transactions made by the sender prior to this one. The object is attached to the transaction id and therefore our framework can avoid the replay attack.
+
+\section{Evaluation}
+In this section, we discuss results obtained from a series of experiments we performed. To evaluate tickets, we used a computer which has 8GB of RAM and a CPU Intel I5. We deployed the owner's smart contract on a private Ethereum blockchain. We defined TS as a web service and ran the applications in the Node.js environment. We performed measurements regarding the execution cost which is expressed in Ethereum gas units, and then, converted to US dollars.
+
+\subsection{Single tickets cost}
+
+We analyzed the single ticket cost from Role ticket (type=1) to One-way ticket (type=5). In private Ethereum blockchain, we calculate the gas cost for each ticket and convert to US dollars according to the latest gas price. As shown in Figure 5, The basic type=1 ticket cost about 0.26USD each while the price is gradually increasing for the type-2 to type-5. The fact should be that the larger the type number is, the more information and verified process have. We take the type-5 tickets as an example, for this type of tickets, the calling process from owner's smart contract need to execute more steps like parsing the one-way index. Apparently, one-way tickets cost more fee.
+% \begin{table}
+\caption{Single tickets cost}
+\scalebox{0.75}{
+\begin{tabular}{|c|c|c|c|c|c|}\hline
+\backslashbox{price}{type}&Role&Method&Args&Exclusive&One-way\\\hline
+Gas cost&461688 &461723&470280 &470302 &495382\\
+US Dollar&0.270 &0.270 &0.275 &0.276 &0.290\\\hline
+\end{tabular}
+}
+\label{tab:cost}
+% \end{table}
+
+\subsection{Multiple tickets cost}
+
+We analyzed the multiple ticket cost for all five types of tickets. Generally, the calling level for each call in Etheruem is usually small. For test purpose, we calculate the number of 1 to 5 tickets each. As shown in Figure 6. The multiple tickets price for each type basically shows a linear trend while there is still a tiny difference between the linear line. The reason is that each smart contract in calling chain is supposed to parse and find its own index in the whole multiple tickets list, therefore, the parsing process results in the multiple tickets cannot show the precise linear trend.
+\begin{figure}[t]
+\begin{picture}(300,150)(-10,10)
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig/eva-2}
+  \put(-15,-30){\special{psfile = fig1.ps hscale = 100 vscale = 100}}
+\end{picture}\\
+  \caption{Gas cost for multiple tickets.}
+  \label{fig:eva-2}
+\end{figure}
+
+\subsection{Throughput of TS}
+We measure the throughput of TS from the query number scale 1 to 10000. As shown in Figure 7.
+\begin{figure}[t]
+\begin{picture}(300,150)(-10,10)
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig/eva-3}
+  \put(-15,-30){\special{psfile = fig1.ps hscale = 100 vscale = 100}}
+\end{picture}\\
+  \caption{Thoughput of TS.}
+  \label{fig:eva-3}
+\end{figure}
+
+\noindent We calculate the throughput of TS from the different five policy types. For the query number equals 1, the TS need to initial the verify process and read the policy from local storage for the fact that it cost more time compared with the larger query scale. With the query increasing, each TS can respond faster and eventually stay less than 0.02 second per query, and normal response time is 0.005s and one-way ticket is 0.017s respectively.
+
+\indent The data shows that our TS framework can handle more than 50 queries per seconds. Furthermore, we statistically measured the peak number of transactions in the popular smart contract in Ethereum and generally, the figure is around 20-50 query in one second~\cite{blockspur,etherscan}. Hence, our TS framework can handle the peak transaction access for most popular smart contracts.
+
+\subsection{Gas cost analysis}
+Lastly, we analyze the gas cost for each step in one ticket. Generally, we divide the whole cost into three parts: parse multiple tickets list fee, verify signature fee and miscellaneous fees. As shown in Figure 8.
+\begin{figure}[t]
+\begin{picture}(300,150)(-10,10)
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig/eva-4}
+  \put(-15,-30){\special{psfile = fig1.ps hscale = 100 vscale = 100}}
+\end{picture}\\
+  \caption{Gas cost Analysis for Role Ticket (Type=1).}
+  \label{fig:eva-4}
+\end{figure}
+
+\noindent The one-way tickets has one more step, buffer-move. As shown in Figure 8
+\begin{figure}[t]
+\begin{picture}(300,150)(-10,10)
+  \centering
+  \includegraphics[width=0.9\linewidth]{fig/eva-5}
+  \put(-15,-30){\special{psfile = fig1.ps hscale = 100 vscale = 100}}
+\end{picture}\\
+  \caption{Gas cost Analysis for One-way Ticket (Type=5).}
+  \label{fig:eva-5}
+\end{figure}
+
+\section{Related work}
+Access control is well-studied topics with an extensive literature. With the booming popularity of smart contract, the security issue in Ethereum becomes the latest trend.
+
+Lorenz Breidenbach et al. ~\cite{breindenbach2018enter} proposed the Hydra Framework, a principled approach to modeling and administering bug bounties that incentivize bug disclosure. The Hydra framework transforms programs via N-of-N-version programming, a variant of classical N-version programming that runs multiple independent program instances and can detect the runtime trouble when deploying contracts. Joshua et al. ~\cite{ellul2018runtime} proposed ContractLarva a proof-of-concept tool to show how standard techniques from runtime verification can be used in the domain of smart contracts, including a novel stake-based instrumentation technique which ensures that the violating party provides insurance for correct behaviour. Lexi et al. ~\cite{brent2018vandal} present Vandal, a security analysis framework for Ethereum smart contracts. Vandal consists of an analysis pipeline that converts low-level Ethereum Virtual Machine (EVM) bytecode to semantic logic relations. Users of the framework can express security analyses in a declarative fashion: a security analysis is expressed in a logic specification written in the souffle language.
+
+Petar Tsankov et al. present Securify ~\cite{tsankov2018securify}, a security analyzer for smart contracts that is able to prove contract behaviors as safe/unsafe with respect to a given property. Securify’s analysis consists of two steps. First, it symbolically analyzes the contract’s dependency graph to extract precise semantic information from the code. Then, it checks compliance and violation patterns that capture sufficient conditions for proving if a property holds or not. To enable extensibility, all patterns are specified in a designated domain-specific language.
+
+Formal verification tools include: Karthikeyan et al. ~\cite{bhargavan2016formal,hirai2016formal}, outline a framework to analyze and verify both the runtime safety and the functional correctness of Ethereum contracts by translation to F*, a functional programming language aimed at program verification. Amani et al.~\cite{amani2018towards} extend an existing EVM formalisation in Isabelle/HOL by a sound program logic at the level of bytecode. This abstraction is a step towards control of the cost and complexity of formal verification of EVM smart contracts. Static analysis and enhancements security for Solidity includes: Loi Luu et al.~\cite{luu2016making}, introduced several new security problems in which an adversary can manipulate smart contract execution to gain profit. They propose ways to enhance the operational semantics of Ethereum to make contracts less vulnerable. Our lab exposed numerous common pitfalls in designing safe and secure smart contracts. Kevin et al.~\cite{delmolino2016step} document several typical classes of mistakes students made, suggest ways to fix/avoid them, and advocate best practices for programming smart contracts. Ahmed et al.~\cite{kosba2016hawk}, proposed Hawk, a decentralized smart contract system that does not store financial transactions in the clear on the blockchain, thus retaining transactional privacy from the public’s view. A Hawk programmer can write a private smart contract in an intuitive manner without having to implement cryptography, and compiler automatically generates an efficient cryptographic protocol where contractual parties interact with the blockchain, using cryptographic primitives such as zero-knowledge proofs.
+
+As for policies in access control design, Weijia et al. ~\cite{he2018rethinking} propose that access control focus on IoT capabilities (i.e., certain actions that devices can perform), rather than on a per-device granularity. From these desired policies, they identify likely candidates for default policies and also pinpoint necessary primitives for specifying more complex, yet desired, access-control policies. These primitives range from the time of day to the current location of users. Zyskind et al. ~\cite{zyskind2015decentralizing} implement a protocol that turns a blockchain into an automated access-control manager that does not require trust in a third party. Yuanyu et al. ~\cite{zhang2018smart} propose a smart contract-based framework, which consists of multiple access control contracts (ACCs), one judge contract (JC) and one register contract (RC), to achieve distributed and trustworthy access control for IoT systems. Each ACC provides one access control method for a subject-object pair, and implements both static access right validation based on predefined policies and dynamic access right validation. Aafaf et al. ~\cite{ouaddah2017towards} propose FairAccess as a new decentralized pseudonymous, privacy preserving authorization and policy management framework that leverages the consistency of blockchain technology to manage access control on behalf of constrained devices. However, there is no access control policies designs that focus on smart contracts yet.
+
+\section{Conclusions}
+
+In this paper, we present the ETHeros framework, the first general, targeted approach to promote the degree of access control by customizing the multiple types of tickets. The core of ETHeros is a policy, a collection of rules that limits the access preventing them from malicious visitors. We apply the ETHeros framework to Tickets Service(TS) and totally define the five types of tickets and each of them is corresponding to a policy type. Tickets can work as a entry permission for smart contracts generated by TS. We design a simple version of the ETHeros framework for Ethereum and implement the model of TS, owner and user entity. We evaluate our implementation for the soundness and veracity and show that the cost of a ticket is less than 0.3 US dollar each and the ETHeros can handle the peak transaction number of most popular contracts in Ethereum.
+
+
+{\normalsize
+\bibliographystyle{acm}
+\bibliography{usenix}}
+
+% \theendnotes
+\end{document}
+
+
+
+
+
+

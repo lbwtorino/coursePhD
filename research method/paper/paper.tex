@@ -1,0 +1,107 @@
+\documentclass[twocolumn]{article}
+% \usepackage{mathptmx}  % Postscript fonts for math mode
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{url}
+\usepackage{color}    % Used to highlight comments
+\usepackage{cite}
+\usepackage{indentfirst}
+\usepackage[ruled]{algorithm2e}
+\usepackage[bookmarks=false]{hyperref}
+
+\newcommand{\psz}[1]{\textcolor{red}{\footnotesize [PSz: #1]}}
+\usepackage{listings}
+\usepackage{xcolor}
+\lstset{
+    numbers=left, 
+    numberstyle= \tiny, 
+    keywordstyle= \color{ blue!70},
+    commentstyle= \color{red!50!green!50!blue!50}, 
+    frame=shadowbox, % 阴影效果
+    rulesepcolor= \color{ red!20!green!20!blue!20} ,
+    escapeinside=``, % 英文分号中可写入中文
+    xleftmargin=2em,xrightmargin=2em, aboveskip=1em,
+    framexleftmargin=2em
+}
+
+%--------------------------------------------------------------------------------
+
+\title{ACTGS: Access Control Tickets-Generate Service for Smart Contract}
+\author{$Bowen Liu^{1}$, $Chunpeng Ge^{2}$, $Pawel Szalachowski^{2}$\\
+    \small{$^{1,2}$Department of Information Systems Technology and Design}\\
+    \small{$^{1,2}$Singapore University of Technology and Design, Singapore}\\
+    \small{$^{1}$bowen\_liu@mymail.sutd.edu.sg, $^{2}$chunpeng\_ge, pawel@sutd.edu.sg}\\
+}
+\date{}
+
+%--------------------------------------------------------------------------------
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+- Briefly motivate problem domain, why is it an imporant domain?
+- What problem does the paper solve?
+- What is the main contribution?
+-> The abstract should convince a reader to read the paper, not
+  necessary to explain anything, just provide an incentive to read
+- Keep the abstract short! Should be fewer than 15 lines.
+\psz{test}
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+\input{sec/intro}
+
+\section{Background}
+\label{sec:pre}
+\input{sec/pre}
+
+\section{Architechture Overview}
+\label{sec:overview}
+\input{sec/overview}
+
+\section{Architechture Details}
+\label{sec:details}
+\input{sec/details}
+
+\section{Policy}
+\label{sec:policy}
+\input{sec/policy}
+
+\section{Security discuss}
+\label{sec:security}
+\input{sec/security}
+
+\section{Realization in Practice}
+\label{sec:implementation}
+\input{sec/implementation}
+
+% \section{Analysis}
+% \label{sec:analysis}
+% \input{sec/analysis}
+
+\section{Related work}
+\label{sec:related}
+\input{sec/related}
+
+\section{Conclusions}
+\label{sec:conclusions}
+\input{sec/conclusions}
+
+
+\section*{Acknowledgment}
+\label{sec:ack}
+\input{sec/ack}
+
+\bibliographystyle{plain}
+\bibliography{ref}
+\end{document}
+
+%%% Local Variables: 
+%%% mode: latex
+%%% TeX-master: t
+%%% End: 

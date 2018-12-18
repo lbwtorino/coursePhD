@@ -1,0 +1,83 @@
+\begin{thebibliography}{10}
+
+\bibitem{bartels2010automatic}
+Georg Bartels, Li-Chen Shi, and Bao-Liang Lu.
+\newblock Automatic artifact removal from eeg-a mixed approach based on double
+  blind source separation and support vector machine.
+\newblock In {\em Engineering in Medicine and Biology Society (EMBC), 2010
+  Annual International Conference of the IEEE}, pages 5383--5386. IEEE, 2010.
+
+\bibitem{nie2011eeg}
+Dan Nie, Xiao-Wei Wang, Li-Chen Shi, and Bao-Liang Lu.
+\newblock Eeg-based emotion recognition during watching movies.
+\newblock In {\em Neural engineering (NER), 2011 5th international IEEE/EMBS
+  conference on}, pages 667--670. IEEE, 2011.
+
+\bibitem{vijayan2015eeg}
+Aravind~E Vijayan, Deepak Sen, and AP~Sudheer.
+\newblock Eeg-based emotion recognition using statistical measures and
+  auto-regressive modeling.
+\newblock In {\em Computational Intelligence \& Communication Technology
+  (CICT), 2015 IEEE International Conference on}, pages 587--591. IEEE, 2015.
+
+\bibitem{bashar2015identification}
+Syed~Khairul Bashar, Ahnaf~Rashik Hassan, and Mohammed Imamul~Hassan Bhuiyan.
+\newblock Identification of motor imagery movements from eeg signals using dual
+  tree complex wavelet transform.
+\newblock In {\em 2015 International Conference on Advances in Computing,
+  Communications and Informatics (ICACCI)}, pages 290--296. IEEE, 2015.
+
+\bibitem{torres2014comparative}
+Cristian~A Torres-Valencia, Hernan~F Garcia-Arias, Mauricio A~Alvarez Lopez,
+  and Alvaro~A Orozco-Guti{\'e}rrez.
+\newblock Comparative analysis of physiological signals and
+  electroencephalogram (eeg) for multimodal emotion recognition using
+  generative models.
+\newblock In {\em Image, Signal Processing and Artificial Vision (STSIVA), 2014
+  XIX Symposium on}, pages 1--5. IEEE, 2014.
+
+\bibitem{abo2015state}
+Mohammed Abo-Zahhad, Sabah~Mohammed Ahmed, and Sherif~Nagib Abbas.
+\newblock State-of-the-art methods and future perspectives for personal
+  recognition based on electroencephalogram signals.
+\newblock {\em IET Biometrics}, 4(3):179--190, 2015.
+
+\bibitem{wei2015selective}
+Chun-Shu Wei, Yuan-Pin Lin, Yu-Te Wang, Tzyy-Ping Jung, Nima Bigdely-Shamlo,
+  and Chin-Teng Lin.
+\newblock Selective transfer learning for eeg-based drowsiness detection.
+\newblock In {\em Systems, Man, and Cybernetics (SMC), 2015 IEEE International
+  Conference on}, pages 3229--3232. IEEE, 2015.
+
+\bibitem{acharya2015novel}
+U~Rajendra Acharya, Vidya~K Sudarshan, Hojjat Adeli, Jayasree Santhosh, Joel~EW
+  Koh, Subha~D Puthankatti, and Amir Adeli.
+\newblock A novel depression diagnosis index using nonlinear features in eeg
+  signals.
+\newblock {\em European neurology}, 74(1-2):79--83, 2015.
+
+\bibitem{pachori2014epileptic}
+Ram~Bilas Pachori and Shivnarayan Patidar.
+\newblock Epileptic seizure classification in eeg signals using second-order
+  difference plot of intrinsic mode functions.
+\newblock {\em Computer methods and programs in biomedicine}, 113(2):494--502,
+  2014.
+
+\bibitem{riaz2016emd}
+Farhan Riaz, Ali Hassan, Saad Rehman, Imran~Khan Niazi, and Kim Dremstrup.
+\newblock Emd-based temporal and spectral features for the classification of
+  eeg signals using supervised learning.
+\newblock {\em IEEE Transactions on Neural Systems and Rehabilitation
+  Engineering}, 24(1):28--35, 2016.
+
+\bibitem{xu20151}
+Gaowei Xu, Jun Han, Yao Zou, and Xiaoyang Zeng.
+\newblock A 1.5-d multi-channel eeg compression algorithm based on nlspiht.
+\newblock {\em IEEE Signal Processing Letters}, 22(8):1118--1122, 2015.
+
+\bibitem{Anova}
+One-way anova.
+\newblock \url{
+  https://www.itl.nist.gov/div898/handbook/eda/section3/eda354.htm}.
+
+\end{thebibliography}

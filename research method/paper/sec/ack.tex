@@ -1,0 +1,47 @@
+\lstset{language=python}
+\begin{lstlisting}
+n, p = 1000, 1/6.0
+s = np.random.binomial(n, p, 1000)
+plt.figure()
+plt.hist(s, color='red', density=True, bins='auto')
+
+def factorial(x):  
+    int_x= int(round(x))
+    fact=1
+    for i in range(int_x+1)[1:]:
+        fact=fact*i
+    return fact
+
+def probabilityFunc(x):
+    mean = 3.25;
+    return np.power(mean, x) * 1.0 / np.exp(mean) / np.math.factorial(x);
+
+print probabilityFunc(0)+probabilityFunc(1)+probabilityFunc(2)
+
+#for the mean is known
+def calUncert(n, p):
+    var = n * p * (1-p);
+    return var;
+
+def standardVar(n, p):
+    variance = calUncert(n, p);
+    return np.sqrt(variance);
+
+
+n_sample = 752 + 283
+p_sample = 752.0 / n_sample
+def calstandVarWed(n, p):
+    return standardVar(n, p);
+
+print calstandVarWed(n_sample, p_sample)
+
+
+def cal():
+    mean = 0.75 * (752 + 283);
+    variance = np.sqrt(0.75 * (752 + 283) * 0.25);
+    return 2 * ss.norm(mean, variance).cdf(752);
+    
+
+print cal()
+
+\end{lstlisting}
